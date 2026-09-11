@@ -1,3 +1,23 @@
 spring:
   application:
     name: booking
+  datasource:
+    url: jdbc:postgresql://db:5432/dbook
+    username: dbook
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+security:
+  jwt:
+    secret: "${SECURITY_JWT_SECRET}"
+    access-token-expiration-minutes: 15
+    refresh-token-expiration-days: 30
