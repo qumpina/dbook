@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - include:
+      file: changes/001_create_users.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changes/002_create_refresh_token.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changes/003_create_rooms.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changes/004_create_bookings.sql
+      relativeToChangelogFile: true
