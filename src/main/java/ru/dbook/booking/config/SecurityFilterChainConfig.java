@@ -44,7 +44,7 @@ public class SecurityFilterChainConfig {
                         .requestMatchers(Routes.AUTH_BASE + "/**").permitAll()
                         .requestMatchers(Routes.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(Routes.TEST).permitAll()
+                        .requestMatchers(Routes.TEST).authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(

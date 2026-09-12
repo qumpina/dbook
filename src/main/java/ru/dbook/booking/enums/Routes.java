@@ -11,5 +11,5 @@ public record Routes() {
     public static final String LOGOUT = AUTH_BASE + "/logout";
     public static final String REFRESH = AUTH_BASE + "/refresh";
     public static final String ERROR = "/error";
-    public static final String TEST = "/test";
+    public static final String TEST = API + V1 + "test";
 }
