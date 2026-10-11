@@ -18,6 +18,10 @@ export function normalizeHttpError(error: unknown): AppError {
     return new AppError('Недостаточно прав для выполнения операции.', 'FORBIDDEN', status)
   }
 
+  if (status === 404) {
+    return new AppError(data?.message ?? 'Запись не найдена.', 'NOT_FOUND', status)
+  }
+
   if (status === 409) {
     return new AppError('Выбранное время уже занято.', 'TIME_CONFLICT', status)
   }

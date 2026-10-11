@@ -10,25 +10,36 @@ import {
 } from '@/api/sessionTokens'
 import type { LoginRequest, RegisterRequest, User } from '@/types/domain'
 
-const isBootstrapping = ref(true)
-const currentUser = ref<User | null>(null)
-
-const client = createApiClient(() => {
-  clearSessionTokens()
-  currentUser.value = null
-  if (window.location.pathname !== '/login') {
-    window.location.assign('/login')
-  }
-})
-const api = new ApiService(client)
-
 export const useSessionStore = defineStore('session', () => {
+  const currentUser = ref<User | null>(null)
+  const isBootstrapping = ref(true)
+  const flashMessage = ref<string | null>(null)
+
+  const client = createApiClient(() => {
+    clearSessionTokens()
+    currentUser.value = null
+    if (window.location.pathname !== '/login') {
+      window.location.assign('/login')
+    }
+  })
+
+  const api = new ApiService(client)
+
   const isAuthenticated = computed(() => currentUser.value !== null)
+
+  function setFlash(message: string | null) {
+    flashMessage.value = message
+  }
+
+  function clearFlash() {
+    flashMessage.value = null
+  }
 
   function applyAuth(payload: { accessToken: string; refreshToken: string; user: User }) {
     setAccessToken(payload.accessToken)
     setRefreshToken(payload.refreshToken)
     currentUser.value = payload.user
+    clearFlash()
   }
 
   async function login(payload: LoginRequest) {
@@ -42,18 +53,26 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function loadProfile() {
-    const { data } = await api.getMe()
-    currentUser.value = data
+    const response = await api.getMe().catch(() => null)
+    if (response) {
+      currentUser.value = response.data
+    }
   }
 
   async function logout() {
     const refreshToken = getRefreshToken()
+
     if (refreshToken) {
-      await api.logout({ refreshToken })
+      try {
+        await api.logout({ refreshToken })
+      } catch {
+        // noop: logout should still clear local session
+      }
     }
 
     clearSessionTokens()
     currentUser.value = null
+    clearFlash()
   }
 
   async function restoreSession() {
@@ -68,7 +87,6 @@ export const useSessionStore = defineStore('session', () => {
 
       const { data } = await api.refresh({ refreshToken })
       applyAuth(data)
-
       await loadProfile()
     } catch {
       clearSessionTokens()
@@ -80,9 +98,12 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     api,
-    isBootstrapping,
     currentUser,
     isAuthenticated,
+    isBootstrapping,
+    flashMessage,
+    setFlash,
+    clearFlash,
     login,
     register,
     loadProfile,

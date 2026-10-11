@@ -2,12 +2,15 @@ package ru.dbook.booking.dto;
 
 import ru.dbook.booking.entity.Room;
 
+import java.time.Instant;
+
 public record RoomResponse(
         Long id,
         String name,
         String description,
         Integer capacity,
-        boolean active
+        boolean active,
+        Instant createdAt
 ) {
 
     public static RoomResponse from(Room room) {
@@ -16,7 +19,8 @@ public record RoomResponse(
                 room.getName(),
                 room.getDescription(),
                 room.getCapacity(),
-                room.isActive()
+                room.isActive(),
+                room.getCreatedAt()
         );
     }
 }

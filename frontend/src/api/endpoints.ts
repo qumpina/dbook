@@ -53,8 +53,16 @@ export class ApiService {
     return this.client.get<Booking[]>('/bookings/me')
   }
 
+  getAllBookings() {
+    return this.client.get<Booking[]>('/bookings')
+  }
+
   createBooking(payload: BookRoomRequest) {
     return this.client.post<Booking>('/bookings', payload)
+  }
+
+  deleteBooking(id: number) {
+    return this.client.delete<void>(`/bookings/${id}`)
   }
 
   getMe() {

@@ -1,5 +1,6 @@
 export type AppErrorCode =
   | 'FORBIDDEN'
+  | 'NOT_FOUND'
   | 'TIME_CONFLICT'
   | 'SERVER_ERROR'
   | 'UNAUTHORIZED'

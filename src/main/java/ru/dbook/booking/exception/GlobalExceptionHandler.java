@@ -53,6 +53,15 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", exception.getMessage()));
     }
 
+    @ExceptionHandler(BookingNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleBookingNotFound(
+            BookingNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(Map.of("message", exception.getMessage()));
+    }
+
     @ExceptionHandler(InvalidBookingTimeException.class)
     public ResponseEntity<Map<String, String>> handleInvalidBookingTime(
             InvalidBookingTimeException exception
