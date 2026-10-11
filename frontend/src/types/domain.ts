@@ -14,13 +14,16 @@ export interface Room {
   description: string
   capacity: number
   active: boolean
+  createdAt?: string
 }
 
 export interface Booking {
   id: number
   roomId: number
-  roomName: string
-  userEmail: string
+  roomName?: string
+  room?: { id: number; name: string }
+  userEmail?: string
+  user?: { id: number; email: string }
   startsAt: string
   endsAt: string
   createdAt: string
@@ -65,4 +68,5 @@ export interface BookRoomRequest {
   roomId: number
   startsAt: string
   endsAt: string
+  userId?: number
 }

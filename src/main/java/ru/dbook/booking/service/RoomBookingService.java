@@ -12,7 +12,9 @@ import ru.dbook.booking.dto.RoomResponse;
 import ru.dbook.booking.entity.Booking;
 import ru.dbook.booking.entity.Room;
 import ru.dbook.booking.entity.User;
+import ru.dbook.booking.enums.UserRole;
 import ru.dbook.booking.exception.BookingConflictException;
+import ru.dbook.booking.exception.BookingNotFoundException;
 import ru.dbook.booking.exception.InvalidBookingTimeException;
 import ru.dbook.booking.exception.RoomAlreadyExistsException;
 import ru.dbook.booking.exception.RoomNotFoundException;
@@ -31,6 +33,8 @@ public class RoomBookingService {
     private static final int BOOKING_STEP_MINUTES = 15;
     private static final int MIN_BOOKING_DURATION_MINUTES = 15;
     private static final int MAX_BOOKING_DURATION_MINUTES = 12 * 60;
+    private static final int WORKDAY_START_HOUR = 8;
+    private static final int WORKDAY_END_HOUR = 22;
     private static final String ROOM_NOT_FOUND_MESSAGE = "Room not found";
     private static final String ROOM_INACTIVE_MESSAGE = "Room is not active";
     private static final String ROOM_BOOKING_FORBIDDEN_MESSAGE = "Only admins and trainers can book rooms";
@@ -39,6 +43,8 @@ public class RoomBookingService {
     private static final String USER_NOT_AUTHENTICATED_MESSAGE = "User is not authenticated";
     private static final String INVALID_DURATION_MESSAGE = "Booking duration must be at least 15 minutes and aligned to 15-minute intervals";
     private static final String INVALID_TIME_MESSAGE = "Booking time must be in the future and end after start";
+    private static final String BOOKING_NOT_FOUND_MESSAGE = "Booking not found";
+    private static final String BOOKING_FORBIDDEN_MESSAGE = "You are not allowed to manage this booking";
 
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
@@ -81,10 +87,19 @@ public class RoomBookingService {
 
     @Transactional
     public BookingResponse bookRoom(BookRoomRequest request) {
-        User user = getCurrentUser();
+        User currentUser = getCurrentUser();
 
-        if (!user.getRole().canBookRoom()) {
+        if (!currentUser.getRole().canBookRoom()) {
             throw new UnauthorizedBookingException(ROOM_BOOKING_FORBIDDEN_MESSAGE);
+        }
+
+        User targetUser = currentUser;
+        if (request.userId() != null) {
+            if (currentUser.getRole() != UserRole.ADMIN) {
+                throw new UnauthorizedBookingException(BOOKING_FORBIDDEN_MESSAGE);
+            }
+            targetUser = userRepository.findById(request.userId())
+                    .orElseThrow(() -> new RoomNotFoundException("User not found"));
         }
 
         Room room = roomRepository.findById(request.roomId())
@@ -106,7 +121,7 @@ public class RoomBookingService {
             throw new BookingConflictException(ROOM_BOOKING_CONFLICT_MESSAGE);
         }
 
-        Booking booking = new Booking(room, user, request.startsAt(), request.endsAt());
+        Booking booking = new Booking(room, targetUser, request.startsAt(), request.endsAt());
         Booking savedBooking = bookingRepository.save(booking);
 
         return BookingResponse.from(savedBooking);
@@ -121,12 +136,37 @@ public class RoomBookingService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<BookingResponse> getAllBookings() {
+        return bookingRepository.findAllByOrderByStartsAtAsc()
+                .stream()
+                .map(BookingResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public void deleteBooking(Long bookingId) {
+        User currentUser = getCurrentUser();
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException(BOOKING_NOT_FOUND_MESSAGE));
+
+        if (currentUser.getRole() != UserRole.ADMIN && !booking.getUser().getId().equals(currentUser.getId())) {
+            throw new UnauthorizedBookingException(BOOKING_FORBIDDEN_MESSAGE);
+        }
+
+        bookingRepository.delete(booking);
+    }
+
     private void validateBookingTime(LocalDateTime startsAt, LocalDateTime endsAt) {
         if (startsAt == null || endsAt == null || !endsAt.isAfter(startsAt)) {
             throw new InvalidBookingTimeException(INVALID_TIME_MESSAGE);
         }
 
         if (startsAt.isBefore(LocalDateTime.now())) {
+            throw new InvalidBookingTimeException(INVALID_TIME_MESSAGE);
+        }
+
+        if (startsAt.getHour() < WORKDAY_START_HOUR || endsAt.getHour() > WORKDAY_END_HOUR || endsAt.getHour() == WORKDAY_END_HOUR && endsAt.getMinute() > 0) {
             throw new InvalidBookingTimeException(INVALID_TIME_MESSAGE);
         }
 
