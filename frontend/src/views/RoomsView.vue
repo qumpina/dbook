@@ -6,6 +6,7 @@ import type { Booking, Room } from '@/types/domain'
 import { createScheduleSlots, hasOverlap, toServerLocalDateTime } from '@/config/schedule'
 
 const session = useSessionStore()
+const canBook = computed(() => ['ADMIN', 'TRAINER'].includes(session.currentUser?.role ?? ''))
 const rooms = ref<Room[]>([])
 const bookings = ref<Booking[]>([])
 const selectedRoomId = ref<number | null>(null)
@@ -60,7 +61,7 @@ const scheduleSlots = computed(() => {
       return hasOverlap(slotStart, slotEnd, bookingStart, bookingEnd)
     })
 
-    const isPast = slotEnd.getTime() <= now.getTime()
+    const isPast = slotStart.getTime() <= now.getTime()
     const isPending = pendingSlotKey.value === slotKey
 
     return {
@@ -100,7 +101,7 @@ async function loadData() {
 }
 
 function openConfirmation(slot: { startsAt: Date; endsAt: Date }) {
-  if (!selectedRoom.value || isSubmitting.value) {
+  if (!canBook.value || !selectedRoom.value || isSubmitting.value) {
     return
   }
 
@@ -138,12 +139,14 @@ async function confirmBooking() {
       startsAt,
       endsAt,
     })
+    await loadBookings()
+    toast.success('Бронирование создано')
     confirmationSlot.value = null
   } catch (error) {
     bookings.value = bookings.value.filter((booking) => booking.id !== optimisticBooking.id)
     pendingSlotKey.value = null
 
-    if (error instanceof Error && 'response' in error && (error as { response?: { status?: number } }).response?.status === 409) {
+    if (error instanceof Error && 'status' in error && error.status === 409) {
       toast.error('Это время уже занято')
       await loadBookings()
       confirmationSlot.value = null
@@ -177,6 +180,9 @@ onMounted(() => {
         <input v-model="dateInput" type="date" class="bg-transparent outline-none" />
       </label>
     </div>
+
+    <p v-if="!canBook" class="text-sm text-slate-600">Бронирование доступно администраторам и тренерам. Вы можете просматривать залы.</p>
+    <p v-else class="text-sm text-slate-600">Отмечены ваши бронирования. Занятость другими пользователями проверяется при подтверждении.</p>
 
     <div v-if="loading" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
       Загружаем комнаты и занятость...
@@ -230,7 +236,7 @@ onMounted(() => {
             v-for="slot in scheduleSlots"
             :key="slot.label"
             type="button"
-            :disabled="slot.isPast || slot.occupied || isSubmitting"
+            :disabled="!canBook || slot.isPast || slot.occupied || isSubmitting"
             class="rounded-2xl border px-3 py-3 text-left transition"
             :class="
               slot.isPast
@@ -243,7 +249,7 @@ onMounted(() => {
           >
             <div class="text-sm font-semibold">{{ slot.label }}</div>
             <div class="mt-1 text-[11px] uppercase tracking-[0.15em]">
-              {{ slot.isPast ? 'Прошло' : slot.occupied ? 'Занято' : 'Свободно' }}
+              {{ slot.isPast ? 'Прошло' : slot.occupied ? 'Ваша бронь' : 'Выбрать время' }}
             </div>
           </button>
         </div>

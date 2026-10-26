@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { Toaster } from 'vue-sonner'
 import { useRoute } from 'vue-router'
 import GuestLayout from '@/layouts/GuestLayout.vue'
@@ -13,9 +13,6 @@ const isGuestShell = computed(() => {
   return route.meta.guestOnly === true || !session.isAuthenticated
 })
 
-onMounted(() => {
-  void session.restoreSession()
-})
 </script>
 
 <template>
@@ -24,6 +21,7 @@ onMounted(() => {
 
     <div
       v-if="session.flashMessage"
+      role="alert"
       class="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"
     >
       {{ session.flashMessage }}
@@ -33,12 +31,7 @@ onMounted(() => {
       Проверяем сессию...
     </div>
 
-    <GuestLayout v-else-if="isGuestShell">
-      <router-view />
-    </GuestLayout>
-
-    <AppLayout v-else>
-      <router-view />
-    </AppLayout>
+    <GuestLayout v-else-if="isGuestShell" />
+    <AppLayout v-else />
   </div>
 </template>

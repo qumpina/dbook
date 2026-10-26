@@ -52,13 +52,6 @@ export const useSessionStore = defineStore('session', () => {
     applyAuth(data)
   }
 
-  async function loadProfile() {
-    const response = await api.getMe().catch(() => null)
-    if (response) {
-      currentUser.value = response.data
-    }
-  }
-
   async function logout() {
     const refreshToken = getRefreshToken()
 
@@ -75,7 +68,14 @@ export const useSessionStore = defineStore('session', () => {
     clearFlash()
   }
 
-  async function restoreSession() {
+  let restorePromise: Promise<void> | null = null
+
+  function restoreSession(): Promise<void> {
+    restorePromise ??= restore()
+    return restorePromise
+  }
+
+  async function restore() {
     isBootstrapping.value = true
 
     try {
@@ -87,7 +87,6 @@ export const useSessionStore = defineStore('session', () => {
 
       const { data } = await api.refresh({ refreshToken })
       applyAuth(data)
-      await loadProfile()
     } catch {
       clearSessionTokens()
       currentUser.value = null
@@ -106,7 +105,6 @@ export const useSessionStore = defineStore('session', () => {
     clearFlash,
     login,
     register,
-    loadProfile,
     logout,
     restoreSession,
   }
