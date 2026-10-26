@@ -24,4 +24,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     );
 
     List<Booking> findAllByUserIdOrderByStartsAtAsc(Long userId);
+
+    List<Booking> findAllByOrderByStartsAtAsc();
 }
