@@ -1,31 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
+import { moscowDateInput, formatMoscowDateTime } from '@/config/schedule'
 import type { Booking, Room } from '@/types/domain'
 
 const session = useSessionStore()
 const rooms = ref<Room[]>([])
 const bookings = ref<Booking[]>([])
-const selectedDate = ref(new Date())
+const dateInput = ref(moscowDateInput())
 const loading = ref(false)
-
-const dateInput = computed({
-  get: () => formatInputDate(selectedDate.value),
-  set: (value: string) => {
-    const [year, month, day] = value.split('-').map(Number)
-    if (!year || !month || !day) {
-      return
-    }
-    selectedDate.value = new Date(year, month - 1, day)
-  },
-})
-
-function formatInputDate(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
 
 const roomRows = computed(() => {
   return rooms.value.map((room) => {
@@ -34,12 +17,7 @@ const roomRows = computed(() => {
         return false
       }
 
-      const bookingDate = new Date(booking.startsAt)
-      return (
-        bookingDate.getFullYear() === selectedDate.value.getFullYear() &&
-        bookingDate.getMonth() === selectedDate.value.getMonth() &&
-        bookingDate.getDate() === selectedDate.value.getDate()
-      )
+      return booking.startsAt.slice(0, 10) === dateInput.value
     })
 
     return {
@@ -110,9 +88,7 @@ onMounted(() => {
                   :key="booking.id"
                   class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700"
                 >
-                  {{ new Date(booking.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) }}–{{
-                    new Date(booking.endsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-                  }}
+                  {{ formatMoscowDateTime(booking.startsAt) }} – {{ formatMoscowDateTime(booking.endsAt) }}
                 </span>
               </div>
               <div v-else class="text-slate-400">Броней нет</div>

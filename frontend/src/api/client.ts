@@ -1,16 +1,17 @@
-import axios, { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
+import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 import { normalizeHttpError } from '@/api/errors'
 import {
   clearSessionTokens,
   getAccessToken,
   getRefreshToken,
+  getSessionVersion,
   setAccessToken,
   setRefreshToken,
 } from '@/api/sessionTokens'
+import { AppError } from '@/types/errors'
 import type { AuthResponse } from '@/types/domain'
 
 const API_URL = import.meta.env.VITE_API_URL?.trim() || '/api/v1'
-
 
 function shouldSkipAuth(config: InternalAxiosRequestConfig): boolean {
   return Boolean(config.headers['x-skip-auth'])
@@ -21,10 +22,11 @@ function shouldSkipRefresh(config: InternalAxiosRequestConfig): boolean {
 }
 
 async function refreshAccessToken(baseClient: AxiosInstance): Promise<string> {
+  const version = getSessionVersion()
   const refreshToken = getRefreshToken()
 
   if (!refreshToken) {
-    throw normalizeHttpError(new AxiosError('No refresh token'))
+    throw new AppError('Сессия истекла. Войдите снова.', 'UNAUTHORIZED', 401)
   }
 
   const response = await baseClient.post<AuthResponse>(
@@ -38,6 +40,9 @@ async function refreshAccessToken(baseClient: AxiosInstance): Promise<string> {
     },
   )
 
+  if (version !== getSessionVersion()) {
+    throw new AppError('Сессия была изменена. Повторите запрос.', 'UNAUTHORIZED', 401)
+  }
   setAccessToken(response.data.accessToken)
   setRefreshToken(response.data.refreshToken)
 
@@ -79,7 +84,13 @@ export function createApiClient(onUnauthorized: () => void): AxiosInstance {
         !originalRequest._retry &&
         !shouldSkipRefresh(originalRequest)
       ) {
+        const version = getSessionVersion()
         originalRequest._retry = true
+        const currentToken = getAccessToken()
+        if (currentToken && originalRequest.headers.Authorization !== `Bearer ${currentToken}`) {
+          originalRequest.headers.Authorization = `Bearer ${currentToken}`
+          return client(originalRequest)
+        }
 
         if (!refreshPromise) {
           refreshPromise = refreshAccessToken(client).finally(() => {
@@ -91,13 +102,20 @@ export function createApiClient(onUnauthorized: () => void): AxiosInstance {
           const token = await refreshPromise
           originalRequest.headers.Authorization = `Bearer ${token}`
           return client(originalRequest)
-        } catch {
-          clearSessionTokens()
-          onUnauthorized()
-          throw normalizeHttpError(error)
+        } catch (refreshError) {
+          const normalized = normalizeHttpError(refreshError)
+          if (version === getSessionVersion() && (normalized.status === 401 || normalized.status === 403 || !getRefreshToken())) {
+            clearSessionTokens()
+            onUnauthorized()
+          }
+          throw normalized
         }
       }
 
+      if (error.response.status === 401 && originalRequest._retry && !shouldSkipRefresh(originalRequest)) {
+        clearSessionTokens()
+        onUnauthorized()
+      }
       throw normalizeHttpError(error)
     },
   )

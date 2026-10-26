@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { formatMoscowDateTime } from '@/config/schedule'
 import { useSessionStore } from '@/stores/session'
 import type { Booking, Room } from '@/types/domain'
 
@@ -110,8 +111,8 @@ onMounted(() => {
             <td class="px-4 py-3">{{ booking.roomName ?? booking.room?.name ?? '—' }}</td>
             <td class="px-4 py-3">{{ booking.userEmail ?? booking.user?.email ?? '—' }}</td>
             <td class="px-4 py-3">
-              {{ new Date(booking.startsAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }} –
-              {{ new Date(booking.endsAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }}
+              {{ formatMoscowDateTime(booking.startsAt) }} –
+              {{ formatMoscowDateTime(booking.endsAt) }}
             </td>
           </tr>
         </tbody>

@@ -49,7 +49,22 @@ test('mobile form validates required fields without sending a request', async ({
   await page.goto('/register')
   await page.getByRole('button', { name: 'Создать аккаунт' }).click()
   await expect(page.getByText('Введите корректный email')).toBeVisible()
-  await expect(page.getByText('Пароль должен содержать от 6 до 100 символов')).toBeVisible()
+  await expect(page.getByText('Пароль должен содержать минимум 6 символов')).toBeVisible()
   expect(requests).toBe(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+
+test('registration keeps the protected destination when switching from login', async ({ page }) => {
+  await page.goto('/profile')
+  await page.getByRole('link', { name: 'Зарегистрироваться' }).click()
+  await page.getByLabel('Имя', { exact: true }).fill('Тест')
+  await page.getByLabel('Фамилия', { exact: true }).fill('Пользователь')
+  await page.getByLabel('Email', { exact: true }).fill(`browser-${randomUUID()}@example.com`)
+  await page.getByLabel('Пароль', { exact: true }).fill('я'.repeat(37))
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click()
+  await expect(page.getByText('Пароль слишком длинный:', { exact: false })).toBeVisible()
+  await page.getByLabel('Пароль', { exact: true }).fill('я'.repeat(36))
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click()
+  await expect(page).toHaveURL(/\/profile$/)
 })

@@ -25,6 +25,8 @@ import ru.dbook.booking.repository.UserRepository;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Clock;
 import java.util.List;
 
 @Service
@@ -49,15 +51,18 @@ public class RoomBookingService {
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final Clock bookingClock;
 
     public RoomBookingService(
             RoomRepository roomRepository,
             BookingRepository bookingRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            Clock bookingClock
     ) {
         this.roomRepository = roomRepository;
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
+        this.bookingClock = bookingClock;
     }
 
     @Transactional
@@ -102,7 +107,7 @@ public class RoomBookingService {
                     .orElseThrow(() -> new RoomNotFoundException("User not found"));
         }
 
-        Room room = roomRepository.findById(request.roomId())
+        Room room = roomRepository.findByIdForBooking(request.roomId())
                 .orElseThrow(() -> new RoomNotFoundException(ROOM_NOT_FOUND_MESSAGE));
 
         if (!room.isActive()) {
@@ -162,12 +167,19 @@ public class RoomBookingService {
             throw new InvalidBookingTimeException(INVALID_TIME_MESSAGE);
         }
 
-        if (startsAt.isBefore(LocalDateTime.now())) {
+        if (startsAt.isBefore(LocalDateTime.now(bookingClock))) {
             throw new InvalidBookingTimeException(INVALID_TIME_MESSAGE);
         }
 
-        if (startsAt.getHour() < WORKDAY_START_HOUR || endsAt.getHour() > WORKDAY_END_HOUR || endsAt.getHour() == WORKDAY_END_HOUR && endsAt.getMinute() > 0) {
+        if (!startsAt.toLocalDate().equals(endsAt.toLocalDate())
+                || startsAt.toLocalTime().isBefore(LocalTime.of(WORKDAY_START_HOUR, 0))
+                || endsAt.toLocalTime().isAfter(LocalTime.of(WORKDAY_END_HOUR, 0))) {
             throw new InvalidBookingTimeException(INVALID_TIME_MESSAGE);
+        }
+
+        if (startsAt.getSecond() != 0 || startsAt.getNano() != 0
+                || endsAt.getSecond() != 0 || endsAt.getNano() != 0) {
+            throw new InvalidBookingTimeException(INVALID_DURATION_MESSAGE);
         }
 
         long durationMinutes = Duration.between(startsAt, endsAt).toMinutes();
