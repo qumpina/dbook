@@ -9,9 +9,8 @@ import {
 } from '@/api/sessionTokens'
 import type { AuthResponse } from '@/types/domain'
 
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = import.meta.env.VITE_API_URL?.trim() || '/api/v1'
 
-let refreshPromise: Promise<string> | null = null
 
 function shouldSkipAuth(config: InternalAxiosRequestConfig): boolean {
   return Boolean(config.headers['x-skip-auth'])
@@ -46,7 +45,9 @@ async function refreshAccessToken(baseClient: AxiosInstance): Promise<string> {
 }
 
 export function createApiClient(onUnauthorized: () => void): AxiosInstance {
+  let refreshPromise: Promise<string> | null = null
   const client = axios.create({
+    timeout: 15000,
     baseURL: API_URL,
     headers: {
       'Content-Type': 'application/json',

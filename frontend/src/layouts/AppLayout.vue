@@ -69,7 +69,7 @@ async function logout() {
         </button>
       </aside>
 
-      <div class="flex-1">
+      <div class="min-w-0 flex-1 pb-24 md:pb-0">
         <header class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:hidden">
           <div class="flex items-center justify-between">
             <div>
@@ -91,7 +91,7 @@ async function logout() {
         </main>
 
         <nav class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white md:hidden">
-          <div class="grid grid-cols-4 gap-1 p-2 text-center text-[11px]">
+          <div class="flex justify-around gap-1 p-2 text-center text-[11px]">
             <button
               v-for="item in navItems"
               :key="item.to"

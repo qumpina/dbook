@@ -7,6 +7,28 @@ const session = useSessionStore()
 const rooms = ref<Room[]>([])
 const bookings = ref<Booking[]>([])
 const loading = ref(false)
+const creating = ref(false)
+const createError = ref('')
+const newRoom = ref({ name: '', description: '', capacity: 1, active: true })
+
+async function createRoom() {
+  if (creating.value) return
+  creating.value = true
+  createError.value = ''
+  try {
+    await session.api.createRoom({
+      ...newRoom.value,
+      name: newRoom.value.name.trim(),
+      description: newRoom.value.description.trim(),
+    })
+    newRoom.value = { name: '', description: '', capacity: 1, active: true }
+    await loadData()
+  } catch (error) {
+    createError.value = error instanceof Error ? error.message : 'Не удалось создать зал'
+  } finally {
+    creating.value = false
+  }
+}
 
 const summary = computed(() => ({
   rooms: rooms.value.length,
@@ -58,7 +80,23 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <form class="space-y-3 rounded-2xl border border-slate-200 p-4" :aria-busy="creating" @submit.prevent="createRoom">
+      <h3 class="font-semibold">Добавить зал</h3>
+      <p v-if="createError" role="alert" class="text-sm text-red-700">{{ createError }}</p>
+      <label class="block text-sm">Название
+        <input v-model="newRoom.name" name="roomName" required maxlength="100" class="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2" />
+      </label>
+      <label class="block text-sm">Описание
+        <textarea v-model="newRoom.description" name="description" required maxlength="1000" class="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2" />
+      </label>
+      <label class="block text-sm">Вместимость
+        <input v-model.number="newRoom.capacity" name="capacity" type="number" required min="1" step="1" class="mt-1 block w-full rounded-xl border border-slate-200 px-3 py-2" />
+      </label>
+      <label class="flex items-center gap-2 text-sm"><input v-model="newRoom.active" type="checkbox" />Активный зал</label>
+      <button type="submit" :disabled="creating" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{{ creating ? 'Создаём...' : 'Создать зал' }}</button>
+    </form>
+
+    <div class="overflow-auto rounded-2xl border border-slate-200 bg-white">
       <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
         <thead class="bg-slate-50 text-slate-600">
           <tr>

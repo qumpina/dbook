@@ -1,5 +1,53 @@
-# Vue 3 + TypeScript + Vite
+# Dance Booking — frontend
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue 3, TypeScript, Pinia, Vue Router и Tailwind CSS. Использует существующий Spring Boot API `/api/v1`.
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## Локальный запуск
+
+Нужны Node.js 24, JDK 21 и PostgreSQL 16. Из корня репозитория подготовьте backend согласно `AGENTS.md` и запустите `./mvnw spring-boot:run` либо `docker compose up -d --build`. Для Compose заполните `.env` по корневому `.env.example` своими локальными значениями. Приложение backend должно быть доступно на порту 8080.
+
+Затем из `frontend`:
+
+```sh
+npm ci
+npm run dev
+```
+
+Дополнительный `.env` не требуется: браузер отправляет запросы на `/api/v1`, а Vite проксирует `/api` на `http://localhost:8080`. Поэтому не нужны CORS-настройки backend. Для другого адреса backend задайте `API_PROXY_TARGET` в окружении процесса Vite. Пример:
+
+```sh
+API_PROXY_TARGET=http://localhost:8081 npm run dev
+```
+
+`VITE_API_URL` переопределяет базовый адрес запросов в браузере. Для отдельного API-домена требуется настроенный CORS на сервере. Переменные `VITE_*` входят в клиентскую сборку: секреты в них размещать нельзя.
+
+## Возможности
+
+- Регистрация и вход, ошибки полей и понятные сообщения для неверных данных и занятого email.
+- Восстановление сессии при перезагрузке, автоматическая ротация токенов, возврат на запрошенную защищённую страницу, выход.
+- Залы, собственные бронирования с отменой, профиль и навигация по роли.
+- `ADMIN` и `TRAINER` могут бронировать; `ADMIN` видит все бронирования и создаёт залы. Тренер видит своё расписание: API всех бронирований разрешён только администратору.
+- На странице залов отмечены собственные бронирования. API не предоставляет общий обезличенный календарь занятости; конфликты с другими пользователями проверяются сервером при создании брони.
+
+Регистрация назначает роль `USER`. Самостоятельного повышения роли через интерфейс нет. Профиль берётся из `AuthResponse` при входе и обновлении сессии: отдельного `/users/me` в backend нет.
+
+## Проверки
+
+```sh
+npm test
+npm run lint
+npm run build
+```
+
+Браузерные тесты работают с настоящим backend и создают уникальные тестовые аккаунты. Запускайте их на отдельной базе для разработки, не на production. Backend должен уже работать; Vite тестовый runner запустит сам.
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+Для системного Chromium: `CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e`. Для уже запущенного frontend задайте `E2E_BASE_URL`. Тесты проверяют регистрацию, ошибочный и успешный вход, сохранение профиля после перезагрузки, защищённые маршруты, выход, повторный email и мобильную валидацию.
+
+## Развёртывание
+
+`npm run build` создаёт `dist/`. Раздавайте его веб-сервером с fallback на `index.html` для маршрутов Vue Router и reverse proxy `/api` на Spring Boot с сохранением пути `/api/v1/...`. Прокси Vite действует только при разработке. Один лишь backend Dockerfile frontend не собирает и не раздаёт.

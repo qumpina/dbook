@@ -67,19 +67,18 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to) => {
   const session = useSessionStore()
+  await session.restoreSession()
   const redirectTarget = typeof to.fullPath === 'string' ? to.fullPath : routePaths.rooms
 
   if (to.meta.guestOnly && session.isAuthenticated) {
-    next({ name: 'rooms' })
-    return
+    return { name: 'rooms' }
   }
 
   if (to.meta.requiresAuth && !session.isAuthenticated) {
     session.setFlash('Сначала войдите в систему.')
-    next({ name: 'login', query: { redirect: redirectTarget } })
-    return
+    return { name: 'login', query: { redirect: redirectTarget } }
   }
 
   const userRole = session.currentUser?.role
@@ -87,11 +86,9 @@ router.beforeEach((to, _from, next) => {
 
   if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {
     session.setFlash('У вас нет доступа к этой странице.')
-    next({ name: 'rooms' })
-    return
+    return { name: 'rooms' }
   }
 
-  next()
 })
 
 export default router

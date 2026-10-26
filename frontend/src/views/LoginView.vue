@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { routePaths } from '@/router/routes'
+import { AppError } from '@/types/errors'
 
 const router = useRouter()
 const route = useRoute()
@@ -11,10 +12,11 @@ const session = useSessionStore()
 const form = ref({ email: '', password: '' })
 const errors = ref<{ email?: string; password?: string }>({})
 const submitting = ref(false)
+const submitError = ref('')
 
 const redirectPath = computed(() => {
   const redirect = route.query.redirect
-  return typeof redirect === 'string' && redirect.startsWith('/') ? redirect : routePaths.rooms
+  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') && !['/login', '/register'].includes(redirect.split('?')[0] ?? '') ? redirect : routePaths.rooms
 })
 
 function validate() {
@@ -24,8 +26,8 @@ function validate() {
     nextErrors.email = 'Введите корректный email'
   }
 
-  if (form.value.password.length < 6) {
-    nextErrors.password = 'Пароль должен содержать минимум 6 символов'
+  if (form.value.password.length < 6 || form.value.password.length > 100) {
+    nextErrors.password = 'Пароль должен содержать от 6 до 100 символов'
   }
 
   errors.value = nextErrors
@@ -33,6 +35,10 @@ function validate() {
 }
 
 async function onSubmit() {
+  if (submitting.value) return
+  submitError.value = ''
+  session.clearFlash()
+  form.value.email = form.value.email.trim()
   if (!validate()) {
     return
   }
@@ -48,7 +54,8 @@ async function onSubmit() {
     await router.replace(redirectPath.value)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка входа'
-    session.setFlash(message)
+    submitError.value = message
+    if (error instanceof AppError) errors.value = error.fieldErrors
   } finally {
     submitting.value = false
   }
@@ -62,29 +69,30 @@ async function onSubmit() {
       <h1 class="mt-2 text-3xl font-semibold text-slate-900">Вход</h1>
     </div>
 
-    <form class="space-y-4" @submit.prevent="onSubmit">
+    <form class="space-y-4" novalidate :aria-busy="submitting" @submit.prevent="onSubmit">
+      <p v-if="submitError" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ submitError }}</p>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+        <label for="email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
         <input
-          v-model="form.email"
+          id="email" v-model="form.email" name="email" autocomplete="username" :aria-invalid="Boolean(errors.email)" :aria-describedby="errors.email ? 'email-error' : undefined"
           type="email"
           class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:bg-white"
           :class="errors.email ? 'border-red-400' : ''"
           placeholder="you@example.com"
         />
-        <p v-if="errors.email" class="mt-1 text-xs text-red-600">{{ errors.email }}</p>
+        <p v-if="errors.email" id="email-error" class="mt-1 text-xs text-red-600">{{ errors.email }}</p>
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Пароль</label>
+        <label for="password" class="mb-1 block text-sm font-medium text-slate-700">Пароль</label>
         <input
-          v-model="form.password"
+          id="password" v-model="form.password" name="password" autocomplete="current-password" :aria-invalid="Boolean(errors.password)" :aria-describedby="errors.password ? 'password-error' : undefined"
           type="password"
           class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:bg-white"
           :class="errors.password ? 'border-red-400' : ''"
           placeholder="••••••••"
         />
-        <p v-if="errors.password" class="mt-1 text-xs text-red-600">{{ errors.password }}</p>
+        <p v-if="errors.password" id="password-error" class="mt-1 text-xs text-red-600">{{ errors.password }}</p>
       </div>
 
       <button

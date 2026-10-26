@@ -54,7 +54,7 @@ async function loadData() {
   try {
     const [roomsResponse, bookingsResponse] = await Promise.all([
       session.api.getRooms(),
-      session.api.getAllBookings(),
+      session.currentUser?.role === 'ADMIN' ? session.api.getAllBookings() : session.api.getMyBookings(),
     ])
     rooms.value = roomsResponse.data
     bookings.value = bookingsResponse.data
@@ -76,7 +76,7 @@ onMounted(() => {
     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-500">Schedule</p>
-        <h2 class="mt-2 text-2xl font-semibold text-slate-900">Расписание залов</h2>
+        <h2 class="mt-2 text-2xl font-semibold text-slate-900">{{ session.currentUser?.role === 'ADMIN' ? 'Расписание залов' : 'Моё расписание' }}</h2>
       </div>
 
       <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
