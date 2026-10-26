@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
+import { formatMoscowDateTime } from '@/config/schedule'
 import { useSessionStore } from '@/stores/session'
 import { AppError } from '@/types/errors'
 import type { Booking } from '@/types/domain'
@@ -71,8 +72,8 @@ onMounted(() => {
         <div>
           <div class="text-lg font-semibold text-slate-900">{{ booking.roomName ?? booking.room?.name ?? 'Зал' }}</div>
           <div class="mt-1 text-sm text-slate-600">
-            {{ new Date(booking.startsAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }} –
-            {{ new Date(booking.endsAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }}
+            {{ formatMoscowDateTime(booking.startsAt) }} –
+            {{ formatMoscowDateTime(booking.endsAt) }}
           </div>
         </div>
 

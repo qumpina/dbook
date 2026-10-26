@@ -125,3 +125,58 @@ describe('session lifecycle', () => {
     expect(getRefreshToken()).toBeNull()
   })
 })
+
+describe('session refresh regressions', () => {
+  it('keeps credentials on a temporary refresh server failure', async () => {
+    setAccessToken('expired')
+    setRefreshToken('saved-refresh')
+    axios.defaults.adapter = (config) => failure(config, config.url === '/auth/refresh' ? 503 : 401)
+    const unauthorized = vi.fn()
+    await expect(createApiClient(unauthorized).get('/rooms')).rejects.toMatchObject({ status: 503 })
+    expect(getRefreshToken()).toBe('saved-refresh')
+    expect(unauthorized).not.toHaveBeenCalled()
+  })
+
+  it('does not restore credentials when a refresh finishes after logout', async () => {
+    setAccessToken('expired')
+    setRefreshToken('saved-refresh')
+    let finish!: () => void
+    const waiting = new Promise<void>((resolve) => { finish = resolve })
+    const started = vi.fn()
+    axios.defaults.adapter = async (config) => {
+      if (config.url === '/auth/refresh') {
+        started()
+        await waiting
+        return response(config, auth)
+      }
+      return failure(config, 401)
+    }
+    const unauthorized = vi.fn()
+    const request = createApiClient(unauthorized).get('/rooms')
+    const rejected = expect(request).rejects.toMatchObject({ status: 401 })
+    await vi.waitFor(() => expect(started).toHaveBeenCalledOnce())
+    clearSessionTokens()
+    finish()
+    await rejected
+    expect(getAccessToken()).toBeNull()
+    expect(getRefreshToken()).toBeNull()
+    expect(unauthorized).not.toHaveBeenCalled()
+  })
+
+  it('does not log back in if bootstrap finishes after logout', async () => {
+    setRefreshToken('saved-refresh')
+    let finish!: () => void
+    const waiting = new Promise<void>((resolve) => { finish = resolve })
+    axios.defaults.adapter = async (config) => {
+      if (config.url === '/auth/refresh') await waiting
+      return response(config, auth)
+    }
+    const session = useSessionStore()
+    const restoring = session.restoreSession()
+    await session.logout()
+    finish()
+    await restoring
+    expect(session.currentUser).toBeNull()
+    expect(getRefreshToken()).toBeNull()
+  })
+})

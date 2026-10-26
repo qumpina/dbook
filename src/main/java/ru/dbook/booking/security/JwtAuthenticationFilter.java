@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,7 +26,6 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String INVALID_JWT_MESSAGE = "Invalid JWT token";
 
     private final JwtService jwtService;
 
@@ -51,8 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authorizationHeader.substring(BEARER_PREFIX.length());
 
         try {
-            if (jwtService.isAccessTokenValid(token)
-                    && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 Claims claims = jwtService.parseClaims(token);
 
@@ -86,7 +84,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (JwtException | IllegalArgumentException exception) {
             SecurityContextHolder.clearContext();
-            throw new BadCredentialsException(INVALID_JWT_MESSAGE, exception);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("{\"message\":\"Unauthorized\"}");
+            return;
         }
 
         filterChain.doFilter(request, response);

@@ -3,14 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useSessionStore } from '@/stores/session'
 import type { Booking, Room } from '@/types/domain'
-import { createScheduleSlots, hasOverlap, toServerLocalDateTime } from '@/config/schedule'
+import { createScheduleSlots, hasOverlap, toServerLocalDateTime, parseServerDateTime, formatMoscowDate, moscowDateInput } from '@/config/schedule'
 
 const session = useSessionStore()
 const canBook = computed(() => ['ADMIN', 'TRAINER'].includes(session.currentUser?.role ?? ''))
 const rooms = ref<Room[]>([])
 const bookings = ref<Booking[]>([])
 const selectedRoomId = ref<number | null>(null)
-const selectedDate = ref(new Date())
+const dateInput = ref(moscowDateInput())
 const loading = ref(false)
 const isSubmitting = ref(false)
 const pendingSlotKey = ref<string | null>(null)
@@ -18,24 +18,6 @@ const confirmationSlot = ref<{ startsAt: Date; endsAt: Date } | null>(null)
 
 const selectedRoom = computed(() => {
   return rooms.value.find((room) => room.id === selectedRoomId.value) ?? rooms.value[0] ?? null
-})
-
-function formatInputDate(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const dateInput = computed({
-  get: () => formatInputDate(selectedDate.value),
-  set: (value: string) => {
-    const [year, month, day] = value.split('-').map(Number)
-    if (!year || !month || !day) {
-      return
-    }
-    selectedDate.value = new Date(year, month - 1, day)
-  },
 })
 
 const scheduleSlots = computed(() => {
@@ -46,18 +28,18 @@ const scheduleSlots = computed(() => {
   const now = new Date()
   const roomId = selectedRoom.value.id
 
-  return createScheduleSlots(selectedDate.value).map((slot) => {
+  return createScheduleSlots(dateInput.value).map((slot) => {
     const slotStart = new Date(slot.startsAt)
     const slotEnd = new Date(slot.endsAt)
-    const slotKey = `${slotStart.toISOString()}|${slotEnd.toISOString()}`
+    const slotKey = `${toServerLocalDateTime(slotStart)}|${toServerLocalDateTime(slotEnd)}`
 
     const occupied = bookings.value.some((booking) => {
       if (booking.roomId !== roomId) {
         return false
       }
 
-      const bookingStart = new Date(booking.startsAt)
-      const bookingEnd = new Date(booking.endsAt)
+      const bookingStart = parseServerDateTime(booking.startsAt)
+      const bookingEnd = parseServerDateTime(booking.endsAt)
       return hasOverlap(slotStart, slotEnd, bookingStart, bookingEnd)
     })
 
@@ -134,12 +116,12 @@ async function confirmBooking() {
   bookings.value = [...bookings.value, optimisticBooking]
 
   try {
-    await session.api.createBooking({
+    const { data } = await session.api.createBooking({
       roomId: selectedRoom.value.id,
       startsAt,
       endsAt,
     })
-    await loadBookings()
+    bookings.value = bookings.value.map((booking) => booking.id === optimisticBooking.id ? data : booking)
     toast.success('Бронирование создано')
     confirmationSlot.value = null
   } catch (error) {
@@ -148,7 +130,7 @@ async function confirmBooking() {
 
     if (error instanceof Error && 'status' in error && error.status === 409) {
       toast.error('Это время уже занято')
-      await loadBookings()
+      await loadBookings().catch(() => session.setFlash('Не удалось обновить список бронирований. Обновите страницу.'))
       confirmationSlot.value = null
       return
     }
@@ -264,8 +246,8 @@ onMounted(() => {
       <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
         <h3 class="text-xl font-semibold text-slate-900">Подтвердите бронь</h3>
         <p class="mt-3 text-sm text-slate-600">
-          {{ selectedRoom?.name }}: {{ confirmationSlot.startsAt.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }} –
-          {{ confirmationSlot.endsAt.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }}
+          {{ selectedRoom?.name }}: {{ formatMoscowDate(confirmationSlot.startsAt, { dateStyle: 'short', timeStyle: 'short' }) }} –
+          {{ formatMoscowDate(confirmationSlot.endsAt, { dateStyle: 'short', timeStyle: 'short' }) }}
         </p>
 
         <div class="mt-5 flex justify-end gap-2">

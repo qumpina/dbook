@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
-import { routePaths } from '@/router/routes'
+import { routePaths, getAuthRedirect } from '@/router/routes'
+import { passwordError } from '@/utils/password'
 import { AppError } from '@/types/errors'
 
 const router = useRouter()
+const route = useRoute()
+const redirectPath = computed(() => getAuthRedirect(route.query.redirect))
 const session = useSessionStore()
 
 const form = ref({
@@ -26,9 +29,7 @@ function validate() {
     nextErrors.email = 'Введите корректный email'
   }
 
-  if (form.value.password.length < 6 || form.value.password.length > 100) {
-    nextErrors.password = 'Пароль должен содержать от 6 до 100 символов'
-  }
+  nextErrors.password = passwordError(form.value.password)
 
   if (!form.value.firstName.trim() || form.value.firstName.trim().length > 100) {
     nextErrors.firstName = 'Введите имя длиной до 100 символов'
@@ -39,7 +40,7 @@ function validate() {
   }
 
   errors.value = nextErrors
-  return Object.keys(nextErrors).length === 0
+  return !Object.values(nextErrors).some(Boolean)
 }
 
 async function onSubmit() {
@@ -61,7 +62,7 @@ async function onSubmit() {
       lastName: form.value.lastName.trim(),
     })
 
-    await router.replace(routePaths.rooms)
+    await router.replace(redirectPath.value)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Не удалось зарегистрироваться'
     submitError.value = message
@@ -118,7 +119,7 @@ async function onSubmit() {
 
     <div class="mt-5 text-center text-sm text-slate-600">
       Уже есть аккаунт?
-      <router-link :to="routePaths.login" class="font-semibold text-indigo-600">Войти</router-link>
+      <router-link :to="{ path: routePaths.login, query: { redirect: redirectPath } }" class="font-semibold text-indigo-600">Войти</router-link>
     </div>
   </div>
 </template>

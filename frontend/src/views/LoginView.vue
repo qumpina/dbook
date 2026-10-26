@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
-import { routePaths } from '@/router/routes'
+import { routePaths, getAuthRedirect } from '@/router/routes'
+import { passwordError } from '@/utils/password'
 import { AppError } from '@/types/errors'
 
 const router = useRouter()
@@ -14,10 +15,7 @@ const errors = ref<{ email?: string; password?: string }>({})
 const submitting = ref(false)
 const submitError = ref('')
 
-const redirectPath = computed(() => {
-  const redirect = route.query.redirect
-  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') && !['/login', '/register'].includes(redirect.split('?')[0] ?? '') ? redirect : routePaths.rooms
-})
+const redirectPath = computed(() => getAuthRedirect(route.query.redirect))
 
 function validate() {
   const nextErrors: { email?: string; password?: string } = {}
@@ -26,12 +24,10 @@ function validate() {
     nextErrors.email = 'Введите корректный email'
   }
 
-  if (form.value.password.length < 6 || form.value.password.length > 100) {
-    nextErrors.password = 'Пароль должен содержать от 6 до 100 символов'
-  }
+  nextErrors.password = passwordError(form.value.password)
 
   errors.value = nextErrors
-  return Object.keys(nextErrors).length === 0
+  return !Object.values(nextErrors).some(Boolean)
 }
 
 async function onSubmit() {
@@ -106,7 +102,7 @@ async function onSubmit() {
 
     <div class="mt-5 text-center text-sm text-slate-600">
       Нет аккаунта?
-      <router-link :to="routePaths.register" class="font-semibold text-indigo-600">Зарегистрироваться</router-link>
+      <router-link :to="{ path: routePaths.register, query: { redirect: redirectPath } }" class="font-semibold text-indigo-600">Зарегистрироваться</router-link>
     </div>
   </div>
 </template>

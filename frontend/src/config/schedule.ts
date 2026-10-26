@@ -11,12 +11,8 @@ export const SLOT_DURATION_MS = 60 * 60 * 1000
 export const MOSCOW_OFFSET_MS = 3 * 60 * 60 * 1000
 
 export function parseServerDateTime(value: string): Date {
-  const clean = value.endsWith('Z') ? value.slice(0, -1) : value
-  const [datePart, timePart = '00:00:00'] = clean.split('T')
-  const [year, month, day] = datePart.split('-').map(Number)
-  const [hour = 0, minute = 0, second = 0] = timePart.split(':').map(Number)
-
-  return new Date(Date.UTC(year, month - 1, day, hour, minute, second) - MOSCOW_OFFSET_MS)
+  // API timestamps have no offset and represent studio wall time in Moscow.
+  return new Date(`${value}+03:00`)
 }
 
 export function toServerLocalDateTime(date: Date): string {
@@ -64,13 +60,16 @@ export function formatMoscowDateTime(value: string): string {
   }).format(parseServerDateTime(value))
 }
 
-export function createScheduleSlots(day: Date): ScheduleSlot[] {
-  const year = day.getFullYear()
-  const month = day.getMonth()
-  const date = day.getDate()
+export function moscowDateInput(date = new Date()): string {
+  return toServerLocalDateTime(date).slice(0, 10)
+}
 
-  const start = new Date(Date.UTC(year, month, date, WORKDAY_START_HOUR, 0, 0) - MOSCOW_OFFSET_MS)
-  const end = new Date(Date.UTC(year, month, date, WORKDAY_END_HOUR, 0, 0) - MOSCOW_OFFSET_MS)
+export function createScheduleSlots(day: string): ScheduleSlot[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return []
+  const [year, month, date] = day.split('-').map(Number) as [number, number, number]
+
+  const start = new Date(Date.UTC(year, month - 1, date, WORKDAY_START_HOUR, 0, 0) - MOSCOW_OFFSET_MS)
+  const end = new Date(Date.UTC(year, month - 1, date, WORKDAY_END_HOUR, 0, 0) - MOSCOW_OFFSET_MS)
 
   const slots: ScheduleSlot[] = []
   for (let current = new Date(start); current < end; current = new Date(current.getTime() + SLOT_DURATION_MS)) {

@@ -39,7 +39,9 @@ export class ApiService {
   }
 
   logout(payload: LogoutRequest) {
-    return this.client.post<void>('/auth/logout', payload)
+    return this.client.post<void>('/auth/logout', payload, {
+      headers: { 'x-skip-auth': '1', 'x-skip-refresh': '1' },
+    })
   }
 
   getRooms() {

@@ -1,6 +1,10 @@
 const ACCESS_TOKEN_KEY = 'booking.accessToken'
 const REFRESH_TOKEN_KEY = 'booking.refreshToken'
 
+let sessionVersion = 0
+
+export function getSessionVersion(): number { return sessionVersion }
+
 let accessToken: string | null = null
 
 export function getAccessToken(): string | null {
@@ -32,6 +36,7 @@ export function setRefreshToken(token: string | null): void {
 }
 
 export function clearSessionTokens(): void {
+  sessionVersion++
   accessToken = null
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
