@@ -233,6 +233,23 @@ test('finished bookings show Прошло at their end time while active and fut
   await expect(slot(page, '10:00–11:00')).toContainText('Ваша бронь')
 })
 
+test('an empty slot stops offering booking at its start and becomes past only at its end', async ({ page }) => {
+  const now = new Date(`${selectedDay}T04:59:59Z`) // 07:59:59 Moscow
+  await page.clock.install({ time: now })
+  await page.clock.pauseAt(now)
+  await openRooms(page)
+  await expect(slot(page)).toContainText('Выбрать время')
+  await expect(slot(page)).toBeEnabled()
+  await page.clock.fastForward(1000)
+  await expect(slot(page)).toContainText('Уже началось')
+  await expect(slot(page)).toBeDisabled()
+  await page.clock.fastForward(30 * 60 * 1000)
+  await expect(slot(page)).toContainText('Уже началось')
+  await page.clock.fastForward(30 * 60 * 1000)
+  await expect(slot(page)).toContainText('Прошло')
+  await expect(slot(page)).toBeDisabled()
+})
+
 test('uses actual booking ends for partial and multi-hour bookings', async ({ page }) => {
   const now = new Date(`${selectedDay}T05:15:00Z`) // 08:15 Moscow
   await page.clock.install({ time: now })
