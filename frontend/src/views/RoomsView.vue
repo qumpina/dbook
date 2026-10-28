@@ -68,6 +68,7 @@ const scheduleSlots = computed(() => {
       occupied: occupied || isPending,
       ownBookings,
       disabled: !bookingsReady.value || isMutating.value || (!ownBookings.length && (!canBook.value || hasStarted || occupied)),
+      hasStarted,
       isPast,
       isPending,
       slotKey,
@@ -310,7 +311,7 @@ onMounted(() => {
           >
             <div class="text-sm font-semibold">{{ slot.label }}</div>
             <div class="mt-1 text-[11px] uppercase tracking-[0.15em]">
-              {{ slot.isPast ? 'Прошло' : slot.isPending ? 'Сохраняем...' : slot.ownBookings.length ? 'Ваша бронь' : slot.occupied ? 'Занято' : !bookingsReady ? 'Нет данных' : canBook ? 'Выбрать время' : 'Просмотр' }}
+              {{ slot.isPast ? 'Прошло' : slot.isPending ? 'Сохраняем...' : slot.ownBookings.length ? 'Ваша бронь' : slot.occupied ? 'Занято' : !bookingsReady ? 'Нет данных' : slot.hasStarted ? 'Уже началось' : canBook ? 'Выбрать время' : 'Просмотр' }}
             </div>
           </button>
         </div>
