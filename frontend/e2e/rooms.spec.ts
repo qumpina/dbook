@@ -201,6 +201,8 @@ test('a USER can cancel a past own booking but a foreign booking stays disabled'
   const day = '2020-01-02'
   const fixture = await openRooms(page, { role: 'USER', day, bookings: [booking(101, '08:00:00', '09:00:00', day), { ...booking(102, '09:00:00', '10:00:00', day), userEmail: 'other@example.test' }] })
   await expect(slot(page, '09:00–10:00')).toBeDisabled()
+  await expect(slot(page, '09:00–10:00')).toContainText('Прошло')
+  await expect(slot(page)).toContainText('Прошло')
   await expect(slot(page)).toBeEnabled()
   await slot(page).click()
   await page.getByRole('dialog', { name: 'Отмена бронирования' }).getByRole('button', { name: 'Отменить бронирование', exact: true }).click()
@@ -214,4 +216,74 @@ test('failed initial booking loading does not expose unchecked slots as bookable
   await expect(activeToast(page, 'Ошибка сервера')).toBeVisible()
   const available = page.getByRole('button').filter({ hasText: 'Выбрать время' })
   await expect(available.and(page.locator(':enabled'))).toHaveCount(0)
+})
+
+test('finished bookings show Прошло at their end time while active and future bookings keep their status', async ({ page }) => {
+  const now = new Date(`${selectedDay}T06:00:00Z`) // 09:00 Moscow
+  await page.clock.install({ time: now })
+  await page.clock.pauseAt(now)
+  await openRooms(page, { bookings: [booking(), booking(102, '09:00:00', '10:00:00'), booking(103, '10:00:00', '11:00:00')] })
+  await expect(slot(page)).toContainText('Прошло')
+  await expect(slot(page)).toHaveClass(/bg-slate-100/)
+  await expect(slot(page)).toBeEnabled() // Cancellation rules stay unchanged.
+  await expect(slot(page, '09:00–10:00')).toContainText('Ваша бронь')
+  await expect(slot(page, '10:00–11:00')).toContainText('Ваша бронь')
+  await page.clock.fastForward(60 * 60 * 1000)
+  await expect(slot(page, '09:00–10:00')).toContainText('Прошло')
+  await expect(slot(page, '10:00–11:00')).toContainText('Ваша бронь')
+})
+
+test('uses actual booking ends for partial and multi-hour bookings', async ({ page }) => {
+  const now = new Date(`${selectedDay}T05:15:00Z`) // 08:15 Moscow
+  await page.clock.install({ time: now })
+  await page.clock.pauseAt(now)
+  await openRooms(page, { bookings: [
+    booking(101, '08:00:00', '08:15:00'),
+    booking(102, '09:00:00', '09:15:00'),
+    booking(103, '09:30:00', '09:45:00'),
+    booking(104, '11:00:00', '13:00:00'),
+  ] })
+  await expect(slot(page)).toContainText('Прошло')
+  await page.clock.fastForward(60 * 60 * 1000)
+  await expect(slot(page, '09:00–10:00')).toContainText('Ваша бронь')
+  await page.clock.fastForward(30 * 60 * 1000)
+  await expect(slot(page, '09:00–10:00')).toContainText('Прошло')
+  await page.clock.fastForward(135 * 60 * 1000) // 12:00 Moscow
+  await expect(slot(page, '10:00–11:00')).toContainText('Прошло') // Empty finished slot.
+  await expect(slot(page, '11:00–12:00')).toContainText('Ваша бронь') // Booking still ongoing.
+  await expect(slot(page, '12:00–13:00')).toContainText('Ваша бронь')
+})
+
+test('My bookings hides completed records by default and preserves the filter after refreshing the list', async ({ page }) => {
+  const now = new Date(`${selectedDay}T06:00:00Z`)
+  await page.clock.install({ time: now })
+  await page.clock.pauseAt(now)
+  const fixture = await openRooms(page, { bookings: [
+    { ...booking(), roomName: 'Прошедшая бронь' },
+    { ...booking(102, '08:30:00', '09:30:00'), roomName: 'Текущая бронь' },
+    { ...booking(103, '10:00:00', '11:00:00'), roomName: 'Будущая бронь' },
+  ] })
+  await page.getByRole('button', { name: 'Мои брони', exact: true }).click()
+  const toggle = page.getByRole('switch', { name: 'Показывать прошедшие' })
+  await expect(toggle).not.toBeChecked()
+  await expect(page.getByText('Прошедшая бронь', { exact: true })).toBeHidden()
+  await expect(page.getByText('Текущая бронь', { exact: true })).toBeVisible()
+  await expect(page.getByText('Будущая бронь', { exact: true })).toBeVisible()
+  await toggle.check()
+  await expect(page.getByText('Прошедшая бронь', { exact: true })).toBeVisible()
+  const futureCard = page.locator('div.rounded-2xl').filter({ hasText: 'Будущая бронь' })
+  await futureCard.getByRole('button', { name: 'Отменить', exact: true }).click()
+  await expect(page.getByText('Будущая бронь', { exact: true })).toBeHidden()
+  expect(fixture.deletedIds).toEqual([103])
+  await expect(toggle).toBeChecked()
+  await expect(page.getByText('Прошедшая бронь', { exact: true })).toBeVisible()
+  await toggle.uncheck()
+  await expect(page.getByText('Прошедшая бронь', { exact: true })).toBeHidden()
+  await expect(page.getByText('Текущая бронь', { exact: true })).toBeVisible()
+  await page.clock.fastForward(30 * 60 * 1000)
+  await expect(page.getByText('Текущая бронь', { exact: true })).toBeHidden()
+  await expect(page.getByText('Нет актуальных и будущих бронирований.', { exact: false })).toBeVisible()
+  await toggle.check()
+  await expect(page.getByText('Текущая бронь', { exact: true })).toBeVisible()
+  await expect(page.getByText('Прошедшая бронь', { exact: true })).toBeVisible()
 })

@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { createScheduleSlots, formatMoscowDateTime, hasOverlap, moscowDateInput, parseServerDateTime, toServerLocalDateTime } from '@/config/schedule'
+import { createScheduleSlots, formatMoscowDateTime, hasEnded, hasOverlap, moscowDateInput, parseServerDateTime, toServerLocalDateTime } from '@/config/schedule'
 
 describe('Moscow studio calendar', () => {
+  it.each([
+    ['2035-04-09T05:59:59.999Z', false],
+    ['2035-04-09T06:00:00.000Z', true],
+    ['2035-04-09T06:00:00.001Z', true],
+  ])('classifies a Moscow booking ending at 09:00 against %s', (now, expected) => {
+    expect(hasEnded('2035-04-09T09:00:00', new Date(now))).toBe(expected)
+    expect(hasEnded(parseServerDateTime('2035-04-09T09:00:00'), new Date(now))).toBe(expected)
+  })
+  it('compares the full end date across Moscow midnight', () => {
+    const now = new Date('2035-04-08T21:00:00Z')
+    expect(hasEnded('2035-04-08T22:00:00', now)).toBe(true)
+    expect(hasEnded('2035-04-09T08:00:00', now)).toBe(false)
+  })
   it('uses the Moscow calendar day when UTC and the browser are still on the previous date', () => {
     expect(moscowDateInput(new Date('2030-01-01T22:30:00Z'))).toBe('2030-01-02')
   })

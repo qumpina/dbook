@@ -3,11 +3,13 @@ import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import CalendarDateInput from '@/components/CalendarDateInput.vue'
 import BookingDialog from '@/components/BookingDialog.vue'
+import { useCurrentTime } from '@/composables/useCurrentTime'
 import { useSessionStore } from '@/stores/session'
 import type { Booking, Room } from '@/types/domain'
-import { createScheduleSlots, hasOverlap, toServerLocalDateTime, parseServerDateTime, formatMoscowDate, moscowDateInput } from '@/config/schedule'
+import { createScheduleSlots, hasEnded, hasOverlap, toServerLocalDateTime, parseServerDateTime, formatMoscowDate, moscowDateInput } from '@/config/schedule'
 
 const session = useSessionStore()
+const now = useCurrentTime()
 const canBook = computed(() => ['ADMIN', 'TRAINER'].includes(session.currentUser?.role ?? ''))
 const rooms = ref<Room[]>([])
 const bookings = ref<Booking[]>([])
@@ -34,7 +36,6 @@ const scheduleSlots = computed(() => {
     return []
   }
 
-  const now = new Date()
   const roomId = selectedRoom.value.id
 
   return createScheduleSlots(dateInput.value).map((slot) => {
@@ -54,14 +55,19 @@ const scheduleSlots = computed(() => {
 
     const occupied = overlappingBookings.length > 0
     const ownBookings = overlappingBookings.filter(isOwnBooking)
-    const isPast = slotStart.getTime() <= now.getTime()
+    const hasStarted = slotStart.getTime() <= now.value.getTime()
+    // A slot can contain shorter bookings or part of a longer booking.
+    // Keep it current while any overlapping booking has yet to end.
+    const isPast = occupied
+      ? overlappingBookings.every((booking) => hasEnded(booking.endsAt, now.value))
+      : hasEnded(slotEnd, now.value)
     const isPending = pendingSlotKey.value === slotKey
 
     return {
       ...slot,
       occupied: occupied || isPending,
       ownBookings,
-      disabled: !bookingsReady.value || isMutating.value || (!ownBookings.length && (!canBook.value || isPast || occupied)),
+      disabled: !bookingsReady.value || isMutating.value || (!ownBookings.length && (!canBook.value || hasStarted || occupied)),
       isPast,
       isPending,
       slotKey,
@@ -291,18 +297,20 @@ onMounted(() => {
             type="button"
             :disabled="slot.disabled"
             class="rounded-2xl border px-3 py-3 text-left transition"
-:class="
-              slot.ownBookings.length
-                ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-400 disabled:cursor-not-allowed'
-                : slot.disabled
-                  ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'
+            :class="
+              slot.isPast
+                ? 'border-slate-200 bg-slate-100 text-slate-400 disabled:cursor-not-allowed'
+                : slot.ownBookings.length
+                  ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-400 disabled:cursor-not-allowed'
+                  : slot.disabled
+                    ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'
             "
             @click="openConfirmation(slot)"
           >
             <div class="text-sm font-semibold">{{ slot.label }}</div>
             <div class="mt-1 text-[11px] uppercase tracking-[0.15em]">
-              {{ slot.isPending ? 'Сохраняем...' : slot.ownBookings.length ? 'Ваша бронь' : slot.occupied ? 'Занято' : slot.isPast ? 'Прошло' : !bookingsReady ? 'Нет данных' : canBook ? 'Выбрать время' : 'Просмотр' }}
+              {{ slot.isPast ? 'Прошло' : slot.isPending ? 'Сохраняем...' : slot.ownBookings.length ? 'Ваша бронь' : slot.occupied ? 'Занято' : !bookingsReady ? 'Нет данных' : canBook ? 'Выбрать время' : 'Просмотр' }}
             </div>
           </button>
         </div>

@@ -15,6 +15,11 @@ export function parseServerDateTime(value: string): Date {
   return new Date(`${value}+03:00`)
 }
 
+export function hasEnded(endsAt: string | Date, now = new Date()): boolean {
+  const end = typeof endsAt === 'string' ? parseServerDateTime(endsAt) : endsAt
+  return end.getTime() <= now.getTime()
+}
+
 export function toServerLocalDateTime(date: Date): string {
   const formatter = new Intl.DateTimeFormat('sv-SE', {
     timeZone: MOSCOW_TIMEZONE,
