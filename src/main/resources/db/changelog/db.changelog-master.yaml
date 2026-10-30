@@ -11,3 +11,6 @@ databaseChangeLog:
   - include:
       file: changes/004_create_bookings.sql
       relativeToChangelogFile: true
+  - include:
+      file: changes/005_disable_legacy_demo_accounts.sql
+      relativeToChangelogFile: true

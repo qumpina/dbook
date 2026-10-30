@@ -52,7 +52,7 @@
 - Источник схемы — `src/main/resources/db/changelog/db.changelog-master.yaml`. Добавляйте новые нумерованные SQL-файлы в `changes/`, с `--liquibase formatted sql`, уникальным changeset и включением в master.
 - Уже применённые changesets не переписывайте. Изменения сущностей сопровождайте миграциями, включая необходимые ограничения и индексы.
 - Проверяйте совместимость на PostgreSQL; не подменяйте его H2 при проверке SQL, миграций и поведения репозиториев.
-- В `application.yaml` установлено `ddl-auto: validate`. Compose по умолчанию переопределяет его на `update`; для проверки миграций явно задавайте `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`.
+- В `application.yaml` установлено `ddl-auto: validate`. Compose также использует `validate`; для проверки миграций задавайте `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`.
 - Передавайте настройки через переменные окружения. Для JVM на хосте нужен `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/dbook`; имя `db` из штатного YAML доступно внутри сети Compose.
 - `.env` игнорируется Git. Не коммитьте реальные пароли и JWT-секреты; значения из примеров не используйте как рабочие секреты. Spring сам по себе не загружает Compose `.env`.
 

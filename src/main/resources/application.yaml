@@ -15,6 +15,6 @@ spring:
 
 security:
   jwt:
-    secret: "${SECURITY_JWT_SECRET}"
+    secret: ${SECURITY_JWT_SECRET}
     access-token-expiration-minutes: 15
     refresh-token-expiration-days: 30

@@ -1,0 +1,23 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "application-jwt-literal"
+description = "Literal signing secret in application configuration"
+regex = '''(?m)^\s*secret:\s*["']?([A-Za-z0-9_+/=-]{24,})'''
+secretGroup = 1
+path = '''application\.ya?ml$'''
+
+[[rules]]
+id = "application-db-password-literal"
+description = "Literal database password in application configuration"
+regex = '''(?m)^\s*password:\s*["']?([A-Za-z0-9_+/=-]{4,})'''
+secretGroup = 1
+path = '''application\.ya?ml$'''
+
+[[rules]]
+id = "compose-jwt-fallback"
+description = "Hardcoded JWT signing key fallback in Compose"
+regex = '''\$\{JWT_SECRET:-([^}]{24,})\}'''
+secretGroup = 1
+path = '''docker-compose\.ya?ml$'''
